@@ -1,5 +1,7 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "frontend/Dockerfile"
+builder = "nixpacks"
+buildCommand = "npm install -g pnpm && pnpm install && pnpm build"
+[deploy]
+startCommand = "pnpm start"
 [service]
 root = "frontend"
