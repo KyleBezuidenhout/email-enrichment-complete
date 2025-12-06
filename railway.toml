@@ -1,7 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install -g pnpm && pnpm install && pnpm build"
+buildCommand = "npm install && npm run build"
+
 [deploy]
-startCommand = "pnpm start"
+startCommand = "npm start"
+
 [service]
 root = "frontend"
