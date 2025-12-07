@@ -78,11 +78,11 @@ export default function UploadPage() {
         job_name: file?.name || 'CSV Upload',
       });
 
-      if (response.success) {
+      if (response.success && response.jobId) {
         // Redirect to job details page
-        router.push(`/dashboard/jobs/${response.data.job_id}`);
+        router.push(`/dashboard/jobs/${response.jobId}`);
       } else {
-        setError(response.error?.message || 'Failed to create enrichment job');
+        setError(response.error || 'Failed to create enrichment job');
       }
     } catch (err) {
       setError('Failed to start enrichment. Please try again.');
