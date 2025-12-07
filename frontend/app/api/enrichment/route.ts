@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { 
   generateDeduplicatedPermutations,
   type LeadData 
@@ -77,8 +77,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Initialize Supabase client
-    const supabase = createClient();
+    // Supabase client is already initialized in @/lib/supabase
     
     // Create or update job in database
     const actualJobId = jobId || `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
