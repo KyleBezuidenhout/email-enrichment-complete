@@ -180,6 +180,9 @@ export async function POST(request: NextRequest) {
         else if (isCatchall) catchallCount++;
         else invalidCount++;
         
+        // Map MailTester API status to database-compatible status
+        const dbStatus = isCatchall ? 'catchall' : verificationResult.status;
+        
         // Step 5: Create result
         const result: EnrichmentResult = {
           firstName: lead.firstName,
@@ -187,7 +190,7 @@ export async function POST(request: NextRequest) {
           domain: lead.domain,
           companySize: lead.companySize,
           email: isValid ? verificationResult.email : null,
-          status: verificationResult.status,
+          status: verificationResult.status, // Keep original for response
           message: verificationResult.message,
           pattern: matchedPermutation?.pattern,
           prevalenceScore: matchedPermutation?.prevalenceScore,
@@ -205,7 +208,7 @@ export async function POST(request: NextRequest) {
             last_name: lead.lastName,
             company_domain: lead.domain,
             email: result.email,
-            status: result.status,
+            status: dbStatus,
             verification_result: {
               pattern: result.pattern,
               prevalenceScore: result.prevalenceScore,
