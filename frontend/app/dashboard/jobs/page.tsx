@@ -7,13 +7,17 @@ import { supabase } from '@/lib/supabase';
 
 interface Job {
   id: string;
-  job_name: string;
+  user_id: string;
   status: string;
   total_leads: number;
-  valid_count: number;
-  catch_all_count: number;
-  invalid_count: number;
+  processed_leads: number;
+  valid_emails: number;
+  invalid_emails: number;
+  catchall_emails: number;
+  error_message: string | null;
   created_at: string;
+  updated_at: string;
+  completed_at: string | null;
 }
 
 export default function JobsListPage() {
@@ -50,7 +54,7 @@ export default function JobsListPage() {
   };
 
   const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.job_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = job.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || job.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -119,14 +123,14 @@ export default function JobsListPage() {
             ) : (
               filteredJobs.map((job) => {
                 const hitRate = job.total_leads > 0 
-                  ? Math.round((job.valid_count / job.total_leads) * 100) 
+                  ? Math.round((job.valid_emails / job.total_leads) * 100) 
                   : 0;
 
                 return (
                   <tr key={job.id} className="border-b border-border hover:bg-secondary/50 transition-colors">
                     <td className="p-4">
                       <Link href={`/dashboard/jobs/${job.id}`} className="font-medium hover:text-primary">
-                        {job.job_name}
+                        Job {job.id.substring(0, 8)}...
                       </Link>
                     </td>
                     <td className="p-4">
@@ -137,7 +141,7 @@ export default function JobsListPage() {
                     </td>
                     <td className="p-4 text-muted-foreground">{job.total_leads.toLocaleString()}</td>
                     <td className="p-4">
-                      <span className="text-green-500 font-medium">{job.valid_count.toLocaleString()}</span>
+                      <span className="text-green-500 font-medium">{job.valid_emails.toLocaleString()}</span>
                     </td>
                     <td className="p-4">
                       <span className={`font-medium ${
