@@ -36,11 +36,7 @@ export const apiClient = {
   },
 
   async getJob(jobId: string) {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/get-job/${jobId}`, {
-      headers: {
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-      },
-    });
+    const response = await fetch(`/api/jobs/${jobId}`);
     return response.json();
   },
 };

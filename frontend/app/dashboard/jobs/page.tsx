@@ -24,17 +24,24 @@ export default function JobsListPage() {
 
   useEffect(() => {
     fetchJobs();
+    
+    // Auto-refresh every 5 seconds for live progress
+    const interval = setInterval(() => {
+      fetchJobs();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchJobs = async () => {
     try {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setJobs(data || []);
+      // Fetch from API endpoint to bypass RLS and show all jobs
+      const response = await fetch('/api/jobs');
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
+      const data = await response.json();
+      setJobs(data.jobs || []);
     } catch (err) {
       console.error('Error fetching jobs:', err);
     } finally {
