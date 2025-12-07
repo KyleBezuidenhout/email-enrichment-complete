@@ -20,14 +20,18 @@ export const apiClient = {
   },
 
   async enrichBatch(data: { leads: any[]; job_name: string }) {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/batch-enrich`, {
+    const response = await fetch('/api/enrichment', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${supabaseAnonKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ leads: data.leads }),
     });
+    
+    if (!response.ok) {
+      throw new Error(`Enrichment failed: ${response.statusText}`);
+    }
+    
     return response.json();
   },
 

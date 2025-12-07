@@ -1,7 +1,2 @@
-[build]
-builder = "nixpacks"
-
-[deploy]
-
 [service]
 root = "frontend"
