@@ -7,14 +7,14 @@
  * 1. Generate 32 email permutations per lead (ranked by company size)
  * 2. Deduplicate emails
  * 3. Verify emails using MailTester API (stop on first valid)
- * 4. Save results to database
+ * 4. Save results to Supabase database
  * 
  * @author Manus AI
- * @version 1.0
+ * @version 2.0
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { 
   generateDeduplicatedPermutations,
   type LeadData 
@@ -27,6 +27,7 @@ import {
 export interface EnrichmentRequest {
   leads: LeadData[];
   jobId?: string;
+  userId?: string; // Optional: for when we add auth
 }
 
 export interface EnrichmentResponse {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body: EnrichmentRequest = await request.json();
-    const { leads, jobId } = body;
+    const { leads, jobId, userId } = body;
     
     // Validate request
     if (!leads || !Array.isArray(leads) || leads.length === 0) {
@@ -68,22 +69,89 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Get MailTester API key from environment
-    const apiKey = process.env.MAIL_TESTER_API_KEY;
-    if (!apiKey) {
+    // Get API keys from environment
+    const mailTesterApiKey = process.env.MAIL_TESTER_API_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!mailTesterApiKey) {
       return NextResponse.json(
         { success: false, error: 'MailTester API key not configured' },
         { status: 500 }
       );
     }
     
-    // Supabase client is already initialized in @/lib/supabase
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json(
+        { success: false, error: 'Supabase not configured' },
+        { status: 500 }
+      );
+    }
     
-    // Create or update job in database
+    // Create Supabase admin client (bypasses RLS)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+    
+    // Create or get job ID
     const actualJobId = jobId || `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create a default user ID for now (until we implement auth)
+    const defaultUserId = '00000000-0000-0000-0000-000000000000';
+    const actualUserId = userId || defaultUserId;
+    
+    // Ensure default user exists
+    const { data: existingUser } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('id', defaultUserId)
+      .single();
+    
+    if (!existingUser) {
+      await supabaseAdmin
+        .from('users')
+        .insert({
+          id: defaultUserId,
+          email: 'test@emailenrichment.com',
+          name: 'Test User',
+          role: 'user'
+        });
+    }
+    
+    // Create job in database
+    const { data: job, error: jobError } = await supabaseAdmin
+      .from('jobs')
+      .insert({
+        id: actualJobId,
+        user_id: actualUserId,
+        status: 'processing',
+        total_leads: leads.length,
+        processed_leads: 0,
+        valid_emails: 0,
+        invalid_emails: 0,
+        catchall_emails: 0
+      })
+      .select()
+      .single();
+    
+    if (jobError) {
+      console.error('Error creating job:', jobError);
+      return NextResponse.json(
+        { success: false, error: `Failed to create job: ${jobError.message}` },
+        { status: 500 }
+      );
+    }
+    
+    console.log(`[${actualJobId}] Created job for ${leads.length} leads`);
     
     // Process each lead
     const results: EnrichmentResult[] = [];
+    let validCount = 0;
+    let invalidCount = 0;
+    let catchallCount = 0;
     
     for (let i = 0; i < leads.length; i++) {
       const lead = leads[i];
@@ -95,7 +163,7 @@ export async function POST(request: NextRequest) {
         // Step 2: Verify emails until first valid one is found (credit optimization)
         const verificationResult: VerificationResult = await verifyUntilValid(
           permutations.map(p => p.email),
-          apiKey,
+          mailTesterApiKey,
           (completed, total, currentEmail) => {
             console.log(`[${actualJobId}] Verifying ${lead.firstName} ${lead.lastName}: ${completed}/${total} - ${currentEmail}`);
           }
@@ -104,13 +172,22 @@ export async function POST(request: NextRequest) {
         // Step 3: Find the matching permutation data
         const matchedPermutation = permutations.find(p => p.email === verificationResult.email);
         
-        // Step 4: Create result
+        // Step 4: Determine status
+        const isValid = verificationResult.status === 'valid';
+        const isCatchall = verificationResult.status === 'catchall';
+        const isInvalid = verificationResult.status === 'invalid';
+        
+        if (isValid) validCount++;
+        else if (isCatchall) catchallCount++;
+        else invalidCount++;
+        
+        // Step 5: Create result
         const result: EnrichmentResult = {
           firstName: lead.firstName,
           lastName: lead.lastName,
           domain: lead.domain,
           companySize: lead.companySize,
-          email: verificationResult.status === 'valid' ? verificationResult.email : null,
+          email: isValid ? verificationResult.email : null,
           status: verificationResult.status,
           message: verificationResult.message,
           pattern: matchedPermutation?.pattern,
@@ -120,11 +197,53 @@ export async function POST(request: NextRequest) {
         
         results.push(result);
         
-        // Step 5: Save result to database (optional - implement if needed)
-        // await saveResultToDatabase(supabase, actualJobId, result);
+        // Step 6: Save lead to database
+        const { data: leadRecord, error: leadError } = await supabaseAdmin
+          .from('leads')
+          .insert({
+            job_id: actualJobId,
+            first_name: lead.firstName,
+            last_name: lead.lastName,
+            company_domain: lead.domain,
+            email: result.email,
+            status: result.status,
+            verification_result: {
+              pattern: result.pattern,
+              prevalenceScore: result.prevalenceScore,
+              verificationPriority: result.verificationPriority,
+              message: result.message
+            }
+          })
+          .select()
+          .single();
+        
+        if (leadError) {
+          console.error(`Error saving lead ${lead.firstName} ${lead.lastName}:`, leadError);
+        } else if (isValid && leadRecord) {
+          // Step 7: Save result to results table (only for valid emails)
+          await supabaseAdmin
+            .from('results')
+            .insert({
+              job_id: actualJobId,
+              lead_id: leadRecord.id,
+              first_name: lead.firstName,
+              last_name: lead.lastName,
+              company_domain: lead.domain,
+              email: result.email!,
+              is_valid: true,
+              is_catchall: false,
+              confidence_score: matchedPermutation?.prevalenceScore ? matchedPermutation.prevalenceScore / 100 : null,
+              verification_details: {
+                pattern: result.pattern,
+                verificationPriority: result.verificationPriority,
+                message: result.message
+              }
+            });
+        }
         
       } catch (error) {
         console.error(`Error processing lead ${lead.firstName} ${lead.lastName}:`, error);
+        invalidCount++;
         results.push({
           firstName: lead.firstName,
           lastName: lead.lastName,
@@ -137,50 +256,37 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // Update job status
+    await supabaseAdmin
+      .from('jobs')
+      .update({
+        status: 'completed',
+        processed_leads: leads.length,
+        valid_emails: validCount,
+        invalid_emails: invalidCount,
+        catchall_emails: catchallCount,
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', actualJobId);
+    
+    console.log(`[${actualJobId}] Completed: ${validCount} valid, ${invalidCount} invalid, ${catchallCount} catchall`);
+    
     // Return results
     return NextResponse.json({
       success: true,
       jobId: actualJobId,
-      message: `Processed ${results.length} leads`,
+      message: `Processed ${results.length} leads: ${validCount} valid, ${invalidCount} invalid, ${catchallCount} catchall`,
       results,
     });
     
   } catch (error) {
     console.error('Enrichment API error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Internal server error',
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred' 
       },
       { status: 500 }
     );
   }
-}
-
-/**
- * Helper function to save result to database
- * (Implement this based on your Supabase schema)
- */
-async function saveResultToDatabase(
-  supabase: any,
-  jobId: string,
-  result: EnrichmentResult
-): Promise<void> {
-  // TODO: Implement database save logic
-  // This should save to the appropriate table in your Supabase database
-  // Example:
-  // await supabase.from('enrichment_results').insert({
-  //   job_id: jobId,
-  //   first_name: result.firstName,
-  //   last_name: result.lastName,
-  //   domain: result.domain,
-  //   company_size: result.companySize,
-  //   email: result.email,
-  //   status: result.status,
-  //   message: result.message,
-  //   pattern: result.pattern,
-  //   prevalence_score: result.prevalenceScore,
-  //   verification_priority: result.verificationPriority,
-  //   created_at: new Date().toISOString(),
-  // });
 }
