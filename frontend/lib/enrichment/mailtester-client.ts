@@ -5,8 +5,10 @@
  * Rate Limit (Ultimate Plan): 170 emails per 30 seconds (1 per 176ms)
  * 
  * @author Manus AI
- * @version 1.0
+ * @version 1.1
  */
+
+import { globalRateLimiter } from './rate-limiter';
 
 export interface MailTesterResponse {
   email: string;
@@ -45,6 +47,9 @@ export async function verifyEmail(
   email: string,
   apiKey: string
 ): Promise<VerificationResult> {
+  // Acquire rate limit token before making request
+  await globalRateLimiter.acquire();
+  
   try {
     const url = `${MAILTESTER_API_URL}?email=${encodeURIComponent(email)}&key=${apiKey}`;
     

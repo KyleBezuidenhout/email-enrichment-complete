@@ -245,31 +245,49 @@ export default function JobDetailsPage() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => handleExport('all')}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex flex-col items-start gap-1"
             >
-              <Download className="w-4 h-4" />
-              Export All
+              <div className="flex items-center gap-2 w-full">
+                <Download className="w-4 h-4" />
+                <span>Export All</span>
+              </div>
+              <span className="text-xs opacity-80">{job.total_leads.toLocaleString()} leads • 100%</span>
             </button>
             <button
               onClick={() => handleExport('valid')}
-              className="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors flex flex-col items-start gap-1"
             >
-              <Download className="w-4 h-4" />
-              Export Valid Only
+              <div className="flex items-center gap-2 w-full">
+                <Download className="w-4 h-4" />
+                <span>Export Valid Only</span>
+              </div>
+              <span className="text-xs opacity-80">
+                {job.valid_count.toLocaleString()} leads • {job.total_leads > 0 ? Math.round((job.valid_count / job.total_leads) * 100) : 0}% hit rate
+              </span>
             </button>
             <button
               onClick={() => handleExport('catch-all')}
-              className="px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg hover:bg-yellow-500/30 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg hover:bg-yellow-500/30 transition-colors flex flex-col items-start gap-1"
             >
-              <Download className="w-4 h-4" />
-              Export Catch-All
+              <div className="flex items-center gap-2 w-full">
+                <Download className="w-4 h-4" />
+                <span>Export Catch-All</span>
+              </div>
+              <span className="text-xs opacity-80">
+                {job.catch_all_count.toLocaleString()} leads • {job.total_leads > 0 ? Math.round((job.catch_all_count / job.total_leads) * 100) : 0}% hit rate
+              </span>
             </button>
             <button
               onClick={() => handleExport('invalid')}
-              className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors flex flex-col items-start gap-1"
             >
-              <Download className="w-4 h-4" />
-              Export Invalid
+              <div className="flex items-center gap-2 w-full">
+                <Download className="w-4 h-4" />
+                <span>Export Invalid</span>
+              </div>
+              <span className="text-xs opacity-80">
+                {job.invalid_count.toLocaleString()} leads • {job.total_leads > 0 ? Math.round((job.invalid_count / job.total_leads) * 100) : 0}% hit rate
+              </span>
             </button>
           </div>
         </div>
