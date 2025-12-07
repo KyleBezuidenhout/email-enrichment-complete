@@ -178,10 +178,11 @@ async function processEnrichmentInBackground(
   mailTesterApiKey: string
 ) {
   const results: EnrichmentResult[] = [];
-    let validCount = 0;
-    let invalidCount = 0;
-    let catchallCount = 0;
-    
+  let validCount = 0;
+  let invalidCount = 0;
+  let catchallCount = 0;
+  
+  try {
     for (let i = 0; i < leads.length; i++) {
       const lead = leads[i];
       
