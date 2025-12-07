@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+
+// Force dynamic rendering to avoid build-time Supabase client issues
+export const dynamic = 'force-dynamic';
 import { Upload, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { parseCSV, detectColumns, validateCSV, prepareLeads, type CSVParseResult, type ColumnMapping } from '@/lib/csv-parser';
 import { apiClient } from '@/lib/supabase';

@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+
+// Force dynamic rendering to avoid build-time Supabase client issues
+export const dynamic = 'force-dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle, XCircle, AlertCircle, Download, RefreshCw, ArrowLeft } from 'lucide-react';
 import { apiClient } from '@/lib/supabase';
