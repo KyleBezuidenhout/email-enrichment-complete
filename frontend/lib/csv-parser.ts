@@ -175,8 +175,8 @@ export function prepareLeads(
 
   return rows.map(row => {
     const lead: any = {
-      first_name: row[mapping.firstName!],
-      last_name: row[mapping.lastName!],
+      firstName: row[mapping.firstName!],
+      lastName: row[mapping.lastName!],
       domain: extractDomain(row[mapping.domain!]),
     };
 
