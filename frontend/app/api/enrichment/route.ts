@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
         
         // Step 4: Determine status
         const isValid = verificationResult.status === 'valid';
-        const isCatchall = verificationResult.status === 'catchall';
+        const isCatchall = verificationResult.status === 'catch-all';
         const isInvalid = verificationResult.status === 'invalid';
         
         if (isValid) validCount++;
