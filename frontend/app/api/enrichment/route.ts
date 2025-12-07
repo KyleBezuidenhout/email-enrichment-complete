@@ -146,8 +146,38 @@ export async function POST(request: NextRequest) {
     const actualJobId = job.id;
     console.log(`[${actualJobId}] Created job for ${leads.length} leads`);
     
-    // Process each lead
-    const results: EnrichmentResult[] = [];
+    // Return immediately - process in background
+    // This prevents HTTP timeout for large CSV files
+    processEnrichmentInBackground(actualJobId, leads, supabaseAdmin, mailTesterApiKey);
+    
+    return NextResponse.json({
+      success: true,
+      jobId: actualJobId,
+      message: `Job created successfully. Processing ${leads.length} leads in background.`,
+    });
+    
+  } catch (error) {
+    console.error('Enrichment API error:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Process enrichment in background (async, non-blocking)
+ */
+async function processEnrichmentInBackground(
+  actualJobId: string,
+  leads: LeadData[],
+  supabaseAdmin: any,
+  mailTesterApiKey: string
+) {
+  const results: EnrichmentResult[] = [];
     let validCount = 0;
     let invalidCount = 0;
     let catchallCount = 0;
@@ -281,23 +311,15 @@ export async function POST(request: NextRequest) {
       .eq('id', actualJobId);
     
     console.log(`[${actualJobId}] Completed: ${validCount} valid, ${invalidCount} invalid, ${catchallCount} catchall`);
-    
-    // Return results
-    return NextResponse.json({
-      success: true,
-      jobId: actualJobId,
-      message: `Processed ${results.length} leads: ${validCount} valid, ${invalidCount} invalid, ${catchallCount} catchall`,
-      results,
-    });
-    
   } catch (error) {
-    console.error('Enrichment API error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
-      },
-      { status: 500 }
-    );
+    console.error(`[${actualJobId}] Background processing error:`, error);
+    // Update job status to failed
+    await supabaseAdmin
+      .from('jobs')
+      .update({
+        status: 'failed',
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', actualJobId);
   }
 }
