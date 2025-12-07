@@ -181,7 +181,16 @@ export async function POST(request: NextRequest) {
         else invalidCount++;
         
         // Map MailTester API status to database-compatible status
-        const dbStatus = isCatchall ? 'catchall' : verificationResult.status;
+        // MailTester returns: 'valid', 'invalid', 'catch-all', 'unverifiable'
+        // Database expects: 'pending', 'processing', 'valid', 'invalid', 'catchall', 'error'
+        let dbStatus: string;
+        if (isCatchall) {
+          dbStatus = 'catchall';
+        } else if (verificationResult.status === 'unverifiable') {
+          dbStatus = 'error';
+        } else {
+          dbStatus = verificationResult.status; // 'valid' or 'invalid'
+        }
         
         // Step 5: Create result
         const result: EnrichmentResult = {
